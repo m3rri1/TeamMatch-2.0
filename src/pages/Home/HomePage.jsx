@@ -8,9 +8,14 @@ export default function HomePage({
   return (
     <div className="app home-page">
       <header className="navbar">
-        <button className="brand" type="button" onClick={() => setPage("home")}>
-          Team<span>Match</span>
-        </button>
+        <button
+  className="brand home-logo-brand"
+  type="button"
+  onClick={() => setPage("home")}
+  aria-label="TeamMatch home"
+>
+  <img src="/teammatch-logo.png" alt="TeamMatch" />
+</button>
 
         <div className="nav-actions">
           <button
