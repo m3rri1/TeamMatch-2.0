@@ -1,0 +1,42 @@
+export const interestGroups = {
+  "Business & Innovation": [
+    "Entrepreneurship",
+    "Startups",
+    "Business",
+    "Marketing",
+    "Finance",
+    "E-commerce",
+  ],
+  "Technology & Science": [
+    "Technology",
+    "AI & ML",
+    "Research",
+    "Science",
+    "Space",
+    "Robotics",
+  ],
+  "Creative & Culture": [
+    "Design",
+    "Fashion",
+    "Beauty",
+    "Arts & Culture",
+    "Music",
+    "Film & Entertainment",
+  ],
+  "Health & Lifestyle": [
+    "Healthcare",
+    "Mental Wellness",
+    "Fitness",
+    "Sports",
+    "Nutrition",
+    "Travel & Lifestyle",
+  ],
+  "Society & Impact": [
+    "Education",
+    "Social Impact",
+    "Sustainability",
+    "Climate",
+    "Agriculture",
+    "Community Building",
+  ],
+};
