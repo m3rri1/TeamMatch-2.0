@@ -127,9 +127,7 @@ export default function ProfilePage({
 
       <main className="profile-page">
         <div className="page-topline">
-          <button className="back-btn" type="button" onClick={back}>
-            ← Back
-          </button>
+    
 
           <span className="page-status">PROFILE SAVED ✓</span>
         </div>

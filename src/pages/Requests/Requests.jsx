@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../services/api";
 
-export default function Requests({ setPage, onBack, profile, page }) {
+export default function Requests({
+  setPage,
+  onBack,
+  profile,
+  page,
+  requestCount = 0,
+}) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -216,10 +222,7 @@ export default function Requests({ setPage, onBack, profile, page }) {
 
       <main className="discover-page">
         <div className="page-topline">
-          <button className="back-btn" type="button" onClick={onBack}>
-            ← Back
-          </button>
-
+          
           <span className="page-status">CONNECTIONS</span>
         </div>
 

@@ -3,7 +3,13 @@ import { createDemoProfiles } from "../../data/demoProfiles";
 import { apiRequest, getAuthToken } from "../../services/api";
 import { loadSavedProfiles } from "../../utils/profileStorage";
 
-export default function Discover({ setPage, onBack, profile, onLogout }) {
+export default function Discover({
+  setPage,
+  onBack,
+  profile,
+  onLogout,
+  requestCount = 0,
+}) {
   const [filter, setFilter] = useState("All");
   const [focusFilter, setFocusFilter] = useState("All");
   const [interestFilter, setInterestFilter] = useState("All");
@@ -457,10 +463,7 @@ export default function Discover({ setPage, onBack, profile, onLogout }) {
 
       <main className="discover-page">
         <div className="page-topline">
-          <button className="back-btn" type="button" onClick={onBack}>
-            ← Back
-          </button>
-          <span className="page-status">DISCOVERY</span>
+           <span className="page-status">DISCOVERY</span>
         </div>
 
         <p className="eyebrow">FIND YOUR TEAM</p>

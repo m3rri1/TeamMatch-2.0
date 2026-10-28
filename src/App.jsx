@@ -1,3 +1,4 @@
+
 import "./styles/App.css";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -13,7 +14,11 @@ import HomePage from "./pages/Home/HomePage";
 import OnboardingPage from "./pages/Onboarding/OnboardingPage";
 import ProfilePage from "./pages/Profile/ProfilePage";
 import Requests from "./pages/Requests/Requests";
-import { apiRequest, getAuthToken, saveProfileToBackend } from "./services/api";
+import {
+  apiRequest,
+  getAuthToken,
+  saveProfileToBackend,
+} from "./services/api";
 import { calculateAge } from "./utils/age";
 import {
   createProfileId,
@@ -24,8 +29,65 @@ import {
   saveProfiles,
 } from "./utils/profileStorage";
 
+const CURRENT_PAGE_KEY = "teammatch_current_page";
+
+const VALID_PAGES = [
+  "home",
+  "profile",
+  "discover",
+  "requests",
+  "chat",
+  "feedback",
+];
+
+function getInitialPage() {
+  try {
+    const savedPage = localStorage.getItem(CURRENT_PAGE_KEY);
+    const hasLocalProfile = loadSavedProfiles().length > 0;
+    const hasToken = Boolean(
+      localStorage.getItem("teammatch_token")
+    );
+
+    // No saved profile or login: start the normal first-time flow.
+    if (!hasLocalProfile && !hasToken) {
+      return "home";
+    }
+
+    // Never unexpectedly restart profile creation after refresh.
+    if (
+      !savedPage ||
+      savedPage === "home" ||
+      savedPage === "onboarding" ||
+      savedPage === "auth"
+    ) {
+      return "profile";
+    }
+
+    return VALID_PAGES.includes(savedPage)
+      ? savedPage
+      : "profile";
+  } catch {
+    return "home";
+  }
+}
+
 function App() {
-  const [page, setPage] = useState("home");
+  const [pageState, setPageState] = useState(getInitialPage);
+  const [incomingRequestCount, setIncomingRequestCount] = useState(0);
+
+  // Remember the current section across refreshes.
+  const setPage = (nextPage) => {
+    setPageState(nextPage);
+  
+  
+
+    try {
+      localStorage.setItem(CURRENT_PAGE_KEY, nextPage);
+    } catch (error) {
+      console.warn("Could not save current page.", error);
+    }
+  };
+
   const [step, setStep] = useState(1);
   const [openSkillCategory, setOpenSkillCategory] = useState(null);
   const [showOtherSkills, setShowOtherSkills] = useState(false);
@@ -33,21 +95,28 @@ function App() {
 
   const [initialProfiles] = useState(() => loadSavedProfiles());
   const [profiles, setProfiles] = useState(initialProfiles);
+
   const [activeProfileId, setActiveProfileId] = useState(() =>
     getActiveProfileId(initialProfiles)
   );
+
   const [profile, setProfile] = useState(() => {
     const activeId = getActiveProfileId(initialProfiles);
 
     return (
-      initialProfiles.find((savedProfile) => savedProfile.id === activeId) ||
-      normalizeProfile(emptyProfile)
+      initialProfiles.find(
+        (savedProfile) => savedProfile.id === activeId
+      ) || normalizeProfile(emptyProfile)
     );
   });
-  const [profileSaved, setProfileSaved] = useState(initialProfiles.length > 0);
+
+  const [profileSaved, setProfileSaved] = useState(
+    initialProfiles.length > 0
+  );
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [backendSaving, setBackendSaving] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
+
   const [authMode, setAuthMode] = useState("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -55,7 +124,53 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authReturnPage, setAuthReturnPage] = useState("profile");
 
-  // Load the signed-in user's profile from MongoDB when the app starts.
+  // Keep the incoming connection-request badge up to date.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshRequestCount() {
+      if (!getAuthToken()) {
+        if (!cancelled) setIncomingRequestCount(0);
+        return;
+      }
+
+      try {
+        const [profileData, connectionData] = await Promise.all([
+          apiRequest("/api/profiles/me"),
+          apiRequest("/api/connections"),
+        ]);
+
+        const myProfile = profileData?.profile || profileData || {};
+        const myUserId = myProfile.userId || myProfile.user?.id;
+        const connections = Array.isArray(connectionData)
+          ? connectionData
+          : [];
+
+        const count = myUserId
+          ? connections.filter(
+              (connection) =>
+                connection.status === "pending" &&
+                String(connection.recipient) === String(myUserId)
+            ).length
+          : 0;
+
+        if (!cancelled) setIncomingRequestCount(count);
+      } catch (error) {
+        // Keep the last known count if the network temporarily fails.
+        console.warn("Could not refresh request count:", error.message);
+      }
+    }
+
+    refreshRequestCount();
+    const intervalId = setInterval(refreshRequestCount, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [pageState]);
+
+  // Restore the signed-in user's profile from the backend.
   useEffect(() => {
     const token = getAuthToken();
     if (!token) return;
@@ -63,7 +178,13 @@ function App() {
     apiRequest("/api/profiles/me")
       .then((data) => {
         const serverProfile = data?.profile || data;
-        if (!serverProfile || (!serverProfile._id && !serverProfile.id)) return;
+
+        if (
+          !serverProfile ||
+          (!serverProfile._id && !serverProfile.id)
+        ) {
+          return;
+        }
 
         const mergedProfile = normalizeProfile({
           ...profile,
@@ -74,11 +195,30 @@ function App() {
         setProfile(mergedProfile);
         setProfileSaved(true);
         setBackendConnected(true);
-
         setProfiles([mergedProfile]);
-        saveProfiles([mergedProfile]);
+        setActiveProfileId(mergedProfile.id);
 
+        saveProfiles([mergedProfile]);
         saveProfile(mergedProfile);
+
+        // If this is a newly authenticated session, open the profile.
+        setPageState((currentPage) => {
+          if (
+            currentPage === "home" ||
+            currentPage === "onboarding" ||
+            currentPage === "auth"
+          ) {
+            try {
+              localStorage.setItem(CURRENT_PAGE_KEY, "profile");
+            } catch {
+              // Page restoration can still continue in memory.
+            }
+
+            return "profile";
+          }
+
+          return currentPage;
+        });
       })
       .catch((error) => {
         console.warn(
@@ -86,14 +226,20 @@ function App() {
           error.message
         );
       });
+    // Restore once when the app starts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!profileSaved || !activeProfileId || isCreatingProfile) return;
+    if (!profileSaved || !activeProfileId || isCreatingProfile) {
+      return;
+    }
 
     setProfiles((currentProfiles) => {
       const nextProfiles = currentProfiles.map((savedProfile) =>
-        savedProfile.id === activeProfileId ? profile : savedProfile
+        savedProfile.id === activeProfileId
+          ? profile
+          : savedProfile
       );
 
       saveProfiles(nextProfiles);
@@ -104,11 +250,8 @@ function App() {
   }, [profile, profileSaved, activeProfileId, isCreatingProfile]);
 
   const isEditing = profileSaved && !isCreatingProfile;
-
   const calculatedAge = calculateAge(profile.birthday);
 
-  // The first interest the user selected is shown as their featured
-  // passionate interest on the profile. No extra selector is needed.
   const featuredPassion =
     profile.interests.find((item) => item !== "Other") ||
     profile.otherInterest ||
@@ -146,14 +289,22 @@ function App() {
     setOpenInterestGroup(null);
 
     try {
-      localStorage.setItem(ACTIVE_PROFILE_ID_KEY, newProfile.id);
+      localStorage.setItem(
+        ACTIVE_PROFILE_ID_KEY,
+        newProfile.id
+      );
     } catch (error) {
-      console.warn("Could not set active TeamMatch profile.", error);
+      console.warn(
+        "Could not set active TeamMatch profile.",
+        error
+      );
     }
   };
 
   const openSavedProfile = (profileId) => {
-    const savedProfile = profiles.find((item) => item.id === profileId);
+    const savedProfile = profiles.find(
+      (item) => item.id === profileId
+    );
 
     if (!savedProfile) return;
 
@@ -166,7 +317,10 @@ function App() {
     setPage("profile");
 
     try {
-      localStorage.setItem(ACTIVE_PROFILE_ID_KEY, selectedProfile.id);
+      localStorage.setItem(
+        ACTIVE_PROFILE_ID_KEY,
+        selectedProfile.id
+      );
       localStorage.setItem(
         PROFILE_STORAGE_KEY,
         JSON.stringify(selectedProfile)
@@ -226,7 +380,9 @@ function App() {
 
     try {
       const endpoint =
-        authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+        authMode === "register"
+          ? "/api/auth/register"
+          : "/api/auth/login";
 
       const data = await apiRequest(endpoint, {
         method: "POST",
@@ -234,7 +390,9 @@ function App() {
       });
 
       if (!data?.token) {
-        throw new Error("Authentication succeeded but no token was returned.");
+        throw new Error(
+          "Authentication succeeded but no token was returned."
+        );
       }
 
       localStorage.setItem("teammatch_token", data.token);
@@ -247,7 +405,6 @@ function App() {
         const profileData = await apiRequest("/api/profiles/me");
         serverProfile = profileData?.profile || profileData;
       } catch (profileError) {
-        // A newly registered account normally has no profile yet.
         if (authMode === "login") {
           console.warn(
             "Could not load existing profile:",
@@ -267,19 +424,27 @@ function App() {
         setProfile(mergedProfile);
         setProfileSaved(true);
         setIsCreatingProfile(false);
+        setActiveProfileId(mergedProfile.id);
+
         setProfiles((currentProfiles) => {
           const nextProfiles = currentProfiles.some(
             (item) => item.id === mergedProfile.id
           )
             ? currentProfiles.map((item) =>
-                item.id === mergedProfile.id ? mergedProfile : item
+                item.id === mergedProfile.id
+                  ? mergedProfile
+                  : item
               )
             : [...currentProfiles, mergedProfile];
+
           saveProfiles(nextProfiles);
           return nextProfiles;
         });
+
         saveProfile(mergedProfile);
-        setPage(authReturnPage === "discover" ? "discover" : "profile");
+        setPage(
+          authReturnPage === "discover" ? "discover" : "profile"
+        );
       } else {
         const localMatch = profiles.find(
           (item) => item.email?.trim().toLowerCase() === email
@@ -296,7 +461,6 @@ function App() {
           setProfileSaved(true);
           setIsCreatingProfile(false);
 
-          // Migrate an existing local profile into this authenticated account.
           try {
             const savedProfile = await apiRequest("/api/profiles", {
               method: "POST",
@@ -320,13 +484,16 @@ function App() {
             );
           }
 
-          setPage(authReturnPage === "discover" ? "discover" : "profile");
+          setPage(
+            authReturnPage === "discover" ? "discover" : "profile"
+          );
         } else {
           const newProfile = normalizeProfile({
             ...emptyProfile,
             email,
             id: createProfileId(),
           });
+
           setProfile(newProfile);
           setActiveProfileId(newProfile.id);
           setProfileSaved(false);
@@ -338,7 +505,9 @@ function App() {
 
       setAuthPassword("");
     } catch (error) {
-      setAuthError(error.message || "Something went wrong. Please try again.");
+      setAuthError(
+        error.message || "Something went wrong. Please try again."
+      );
     } finally {
       setAuthLoading(false);
     }
@@ -348,6 +517,7 @@ function App() {
     localStorage.removeItem("teammatch_token");
     localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
     localStorage.removeItem(PROFILE_STORAGE_KEY);
+    localStorage.removeItem(CURRENT_PAGE_KEY);
 
     setBackendConnected(false);
     setAuthPassword("");
@@ -365,47 +535,39 @@ function App() {
     switch (step) {
       case 1:
         return profile.firstName.trim() !== "";
-
       case 2:
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email);
-
       case 3:
         return Boolean(profile.birthday);
-
       case 4:
         return Boolean(profile.gender);
-
       case 5:
         return Boolean(profile.location);
-
       case 6:
         return Boolean(profile.education);
-
       case 7:
         return (
-          profile.professionalRole.trim() !== "" && Boolean(profile.industry)
+          profile.professionalRole.trim() !== "" &&
+          Boolean(profile.industry)
         );
-
       case 8:
         return (
           profile.skills.length > 0 &&
-          (profile.subskills.length > 0 || profile.otherSkill.trim() !== "")
+          (profile.subskills.length > 0 ||
+            profile.otherSkill.trim() !== "")
         );
-
       case 9:
         return (
-          profile.interests.length > 0 || profile.otherInterest.trim() !== ""
+          profile.interests.length > 0 ||
+          profile.otherInterest.trim() !== ""
         );
-
       case 10:
         return profile.about.trim().length >= 20;
-
       case 11:
         return (
           Boolean(profile.focusType) &&
           profile.focusDescription.trim().length >= 15
         );
-
       case 12:
         return (
           Array.isArray(profile.prompts) &&
@@ -414,15 +576,12 @@ function App() {
           profile.prompts[0]?.answer?.trim().length >= 10 &&
           profile.prompts[1]?.question &&
           profile.prompts[1]?.answer?.trim().length >= 10 &&
-          profile.prompts[0]?.question !== profile.prompts[1]?.question
+          profile.prompts[0]?.question !==
+            profile.prompts[1]?.question
         );
-
       case 13:
-        return true;
-
       case 14:
         return true;
-
       default:
         return true;
     }
@@ -439,10 +598,9 @@ function App() {
   };
 
   const back = () => {
-    // Onboarding: always go to the immediately previous step.
+    // The onboarding wizard keeps its normal previous-step behavior.
     if (page === "onboarding") {
       if (step === 1) {
-        // Editing an existing profile returns to it; first-time setup goes home.
         setPage(isEditing ? "profile" : "home");
       } else {
         setStep((current) => current - 1);
@@ -450,26 +608,14 @@ function App() {
       return;
     }
 
+    // Do not send users from app sections back to profile creation.
     if (page === "profile") {
       setPage("home");
       return;
     }
 
-    // Discover is reached from the profile in the normal flow.
-    if (page === "discover") {
+    if (["discover", "requests", "chat", "feedback"].includes(page)) {
       setPage("profile");
-      return;
-    }
-
-    // Requests is reached from Discover.
-    if (page === "requests") {
-      setPage("discover");
-      return;
-    }
-
-    // Feedback is reached from Discover.
-    if (page === "feedback") {
-      setPage("discover");
     }
   };
 
@@ -488,7 +634,6 @@ function App() {
     });
 
     const nextProfiles = [profileToSave];
-
     const locallySaved = saveProfiles(nextProfiles);
 
     if (locallySaved) {
@@ -510,10 +655,8 @@ function App() {
         id: profileToSave.id,
       });
 
-      const finalProfiles = nextProfiles.map((savedProfileItem) =>
-        savedProfileItem.id === finalProfile.id
-          ? finalProfile
-          : savedProfileItem
+      const finalProfiles = nextProfiles.map((item) =>
+        item.id === finalProfile.id ? finalProfile : item
       );
 
       setProfile(finalProfile);
@@ -546,7 +689,7 @@ function App() {
     }));
   };
 
-  if (page === "auth") {
+  if (pageState === "auth") {
     return (
       <AuthPage
         setPage={setPage}
@@ -564,7 +707,7 @@ function App() {
     );
   }
 
-  if (page === "home") {
+  if (pageState === "home") {
     return (
       <HomePage
         setPage={setPage}
@@ -576,10 +719,10 @@ function App() {
     );
   }
 
-  if (page === "profile") {
+  if (pageState === "profile") {
     return (
       <ProfilePage
-        page={page}
+        page={pageState}
         setPage={setPage}
         setStep={setStep}
         profile={profile}
@@ -589,11 +732,12 @@ function App() {
         requireAuth={requireAuth}
         logout={logout}
         back={back}
+        requestCount={incomingRequestCount}
       />
     );
   }
 
-  if (page === "onboarding") {
+  if (pageState === "onboarding") {
     return (
       <OnboardingPage
         isEditing={isEditing}
@@ -617,28 +761,42 @@ function App() {
     );
   }
 
-  if (page === "discover") {
+  if (pageState === "discover") {
     return (
       <Discover
         setPage={setPage}
         onBack={back}
         profile={profile}
         onLogout={logout}
+        requestCount={incomingRequestCount}
       />
     );
   }
 
-  if (page === "requests") {
+  if (pageState === "requests") {
     return (
-      <Requests setPage={setPage} onBack={back} profile={profile} page={page} />
+      <Requests
+        setPage={setPage}
+        onBack={back}
+        profile={profile}
+        page={pageState}
+        requestCount={incomingRequestCount}
+      />
     );
   }
 
-  if (page === "chat") {
-    return <Chat setPage={setPage} onBack={back} profile={profile} />;
+  if (pageState === "chat") {
+    return (
+      <Chat
+        setPage={setPage}
+        onBack={back}
+        profile={profile}
+        requestCount={incomingRequestCount}
+      />
+    );
   }
 
-  if (page === "feedback") {
+  if (pageState === "feedback") {
     return <Feedback setPage={setPage} onBack={back} />;
   }
 

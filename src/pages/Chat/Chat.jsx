@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../services/api";
 
-export default function Chat({ setPage, onBack, profile }) {
+export default function Chat({
+  setPage,
+  onBack,
+  profile,
+  requestCount = 0,
+}) {
   const [people, setPeople] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [messages, setMessages] = useState([]);
