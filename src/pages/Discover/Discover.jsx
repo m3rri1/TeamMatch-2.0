@@ -357,9 +357,14 @@ export default function Discover({
   return (
     <div className="app">
       <header className="navbar">
-        <button className="brand" type="button" onClick={() => setPage("home")}>
-          Team<span>Match</span>
-        </button>
+        <button
+  className="brand logo-brand"
+  type="button"
+  onClick={() => setPage("home")}
+  aria-label="TeamMatch home"
+>
+  <img src="/teammatch-logo.png" alt="TeamMatch" />
+</button>
 
         <div className="nav-actions">
           <button

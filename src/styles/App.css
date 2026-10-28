@@ -3812,3 +3812,36 @@ textarea {
   -webkit-text-fill-color: #fffdf8 !important;
   opacity: 0.75;
 }
+
+/* TeamMatch image logo */
+.logo-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0;
+  width: 190px;
+  max-width: 45vw;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.logo-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 52px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+@media (max-width: 760px) {
+  .logo-brand {
+    width: 145px;
+    max-width: 42vw;
+  }
+
+  .logo-brand img {
+    max-height: 42px;
+  }
+}
