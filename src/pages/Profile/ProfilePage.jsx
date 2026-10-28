@@ -127,9 +127,7 @@ export default function ProfilePage({
 
       <main className="profile-page">
 <div className="page-topline">
-  <a className="mobile-brand" href="/" aria-label="TeamMatch home">
-    <img src="/teammatch-logo.png" alt="TeamMatch" />
-  </a>
+
 
   <span className="page-status">PROFILE SAVED ✓</span>
 
