@@ -80,7 +80,12 @@ export default function Chat({
 
       setPeople(connectedPeople);
 
-      if (!selectedUserId && connectedPeople.length > 0) {
+      // On mobile, show the connections list first. Desktop opens the first chat.
+      if (
+        !selectedUserId &&
+        connectedPeople.length > 0 &&
+        !window.matchMedia("(max-width: 760px)").matches
+      ) {
         setSelectedUserId(connectedPeople[0].userId);
       }
     } catch (err) {
@@ -108,11 +113,47 @@ export default function Chat({
     loadChat();
   }, []);
 
-  useEffect(() => {
-    if (selectedUserId) {
-      loadMessages(selectedUserId);
+
+useEffect(() => {
+  if (!selectedUserId) return;
+
+  let cancelled = false;
+  let fetching = false;
+
+  const refreshMessages = async () => {
+    if (fetching) return;
+
+    fetching = true;
+
+    try {
+      const data = await apiRequest(`/api/messages/${selectedUserId}`);
+      const latestMessages = Array.isArray(data)
+        ? data
+        : data.messages || [];
+
+      if (!cancelled) {
+        setMessages(latestMessages);
+      }
+    } catch (err) {
+      if (!cancelled) {
+        console.error("Could not refresh messages:", err.message);
+      }
+    } finally {
+      fetching = false;
     }
-  }, [selectedUserId]);
+  };
+
+  // Load immediately, then check for new messages every 3 seconds.
+  refreshMessages();
+
+  const intervalId = setInterval(refreshMessages, 3000);
+
+  return () => {
+    cancelled = true;
+    clearInterval(intervalId);
+  };
+}, [selectedUserId]);
+
 
   async function sendMessage() {
     const message = draft.trim();
@@ -235,10 +276,17 @@ export default function Chat({
           Explore
         </button>
 
-        <button type="button" onClick={() => setPage("requests")}>
-          <span>♡</span>
-          Requests
-        </button>
+<button type="button" onClick={() => setPage("requests")}>
+  <span className="request-nav-icon">
+    ♡
+    {requestCount > 0 && (
+      <span className="request-badge">
+        {requestCount > 9 ? "9+" : requestCount}
+      </span>
+    )}
+  </span>
+  Requests
+</button>
 
         <button type="button" onClick={() => setPage("chat")}>
           <span className="chat-nav-icon" aria-hidden="true">
@@ -278,7 +326,8 @@ export default function Chat({
         </button>
       </nav>
 
-      <main className="discover-page">
+      <main className={`discover-page chat-page ${selectedUserId ? "is-chat-open" : ""}`}>
+        <div className="chat-intro">
         <div className="page-topline">
           <button className="back-btn" type="button" onClick={onBack}>
             ← Back
@@ -294,6 +343,7 @@ export default function Chat({
         <p className="screen-subtitle">
           Chat with people you have connected with.
         </p>
+        </div>
 
         {error && (
           <div className="connection-banner" style={{ marginTop: "20px" }}>
@@ -332,22 +382,18 @@ export default function Chat({
             </button>
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "280px minmax(0, 1fr)",
-              gap: "20px",
-              marginTop: "30px",
-            }}
-          >
-            <section className="profile-card" style={{ padding: "14px" }}>
-              <div
-                style={{
-                  padding: "8px 10px 14px",
-                  fontWeight: 700,
-                }}
-              >
-                Connections
+          <div className="chat-layout">
+            <section
+              className={`profile-card chat-people ${
+                selectedUserId ? "has-selection" : ""
+              }`}
+              style={{ padding: "14px" }}
+            >
+              <div className="chat-list-heading">
+                <div>
+                  <strong>Connections</strong>
+                  <small>{people.length} {people.length === 1 ? "person" : "people"}</small>
+                </div>
               </div>
 
               {people.map((person) => (
@@ -355,6 +401,7 @@ export default function Chat({
                   key={person.userId}
                   type="button"
                   onClick={() => setSelectedUserId(person.userId)}
+                  className={`chat-person-row ${selectedUserId === person.userId ? "selected" : ""}`}
                   style={{
                     width: "100%",
                     display: "flex",
@@ -363,10 +410,7 @@ export default function Chat({
                     padding: "13px",
                     border: 0,
                     borderRadius: "16px",
-                    background:
-                      selectedUserId === person.userId
-                        ? "var(--peach-soft)"
-                        : "transparent",
+                    background: selectedUserId === person.userId ? "var(--peach-soft)" : "transparent",
                     cursor: "pointer",
                     textAlign: "left",
                   }}
@@ -386,7 +430,7 @@ export default function Chat({
                     <div className="avatar">{person.initial}</div>
                   )}
 
-                  <div>
+                  <div className="chat-person-details">
                     <strong>{person.name}</strong>
 
                     <small
@@ -399,12 +443,15 @@ export default function Chat({
                       {person.role}
                     </small>
                   </div>
+                  <span className="chat-row-chevron" aria-hidden="true">›</span>
                 </button>
               ))}
             </section>
 
             <section
-              className="profile-card"
+              className={`profile-card chat-conversation ${
+                selectedUserId ? "has-selection" : ""
+              }`}
               style={{
                 minHeight: "520px",
                 display: "flex",
@@ -412,9 +459,17 @@ export default function Chat({
                 padding: "24px",
               }}
             >
+              {!selected && (
+                <div className="chat-desktop-placeholder">
+                  <span>✳</span>
+                  <strong>Your conversations</strong>
+                  <p>Select a connection to start chatting.</p>
+                </div>
+              )}
               {selected && (
                 <>
                   <div
+                    className="chat-conversation-header"
                     style={{
                       paddingBottom: "18px",
                       borderBottom: "1px solid var(--line)",
@@ -424,27 +479,38 @@ export default function Chat({
                       gap: "15px",
                     }}
                   >
-                    <div>
-                      <strong
-                        style={{
-                          fontSize: "20px",
-                        }}
+                    <div className="chat-person-heading">
+                      <button
+                        className="chat-mobile-back"
+                        type="button"
+                        onClick={() => setSelectedUserId(null)}
+                        aria-label="Back to connections"
                       >
-                        {selected.name}
-                      </strong>
+                        ←
+                      </button>
+                      <div className="chat-person-heading-copy">
+                        <strong
+                          style={{
+                            fontSize: "20px",
+                          }}
+                        >
+                          {selected.name}
+                        </strong>
 
-                      <small
-                        style={{
-                          display: "block",
-                          color: "#777",
-                          marginTop: "4px",
-                        }}
-                      >
-                        {selected.role}
-                      </small>
+                        <small
+                          style={{
+                            display: "block",
+                            color: "#777",
+                            marginTop: "4px",
+                          }}
+                        >
+                          {selected.role}
+                        </small>
+                      </div>
                     </div>
 
                     <div
+                      className="chat-header-actions"
                       style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}
                     >
                       <button
@@ -471,6 +537,7 @@ export default function Chat({
                   </div>
 
                   <div
+                    className="chat-message-list"
                     style={{
                       flex: 1,
                       overflowY: "auto",
@@ -532,6 +599,7 @@ export default function Chat({
                   </div>
 
                   <div
+                    className="chat-composer"
                     style={{
                       display: "flex",
                       gap: "10px",
@@ -550,6 +618,7 @@ export default function Chat({
                       placeholder="Write a message..."
                       style={{
                         flex: 1,
+                        minWidth: 0,
                       }}
                     />
 

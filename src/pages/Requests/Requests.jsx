@@ -169,14 +169,21 @@ export default function Requests({
           Explore
         </button>
 
-        <button
-          type="button"
-          className={page === "requests" ? "active" : ""}
-          onClick={() => setPage("requests")}
-        >
-          <span>♡</span>
-          Requests
-        </button>
+<button
+  type="button"
+  className={page === "requests" ? "active" : ""}
+  onClick={() => setPage("requests")}
+>
+  <span className="request-nav-icon">
+    ♡
+    {requestCount > 0 && (
+      <span className="request-badge">
+        {requestCount > 9 ? "9+" : requestCount}
+      </span>
+    )}
+  </span>
+  Requests
+</button>
 
         <button
           type="button"

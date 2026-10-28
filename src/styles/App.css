@@ -3797,3 +3797,18 @@ textarea {
 .mobile-nav button:active {
   transform: scale(0.97);
 }
+
+/* Fix Pass and Reject button text contrast */
+.reject,
+.reject:hover,
+.reject:focus,
+.reject:active {
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+}
+
+.reject:disabled {
+  color: #fffdf8 !important;
+  -webkit-text-fill-color: #fffdf8 !important;
+  opacity: 0.75;
+}

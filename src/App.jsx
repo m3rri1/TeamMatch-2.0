@@ -785,20 +785,20 @@ function App() {
     );
   }
 
-  if (pageState === "chat") {
-    return (
-      <Chat
-        setPage={setPage}
-        onBack={back}
-        profile={profile}
-        requestCount={incomingRequestCount}
-      />
-    );
-  }
+if (pageState === "chat") {
+  return (
+    <Chat
+      setPage={setPage}
+      onBack={() => setPage("discover")}
+      profile={profile}
+      requestCount={incomingRequestCount}
+    />
+  );
+}
 
-  if (pageState === "feedback") {
-    return <Feedback setPage={setPage} onBack={back} />;
-  }
+if (pageState === "feedback") {
+  return <Feedback setPage={setPage} onBack={() => setPage("chat")} />;
+}
 
   return null;
 }
