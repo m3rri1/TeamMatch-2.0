@@ -3845,3 +3845,27 @@ textarea {
     max-height: 42px;
   }
 }
+
+/* Keep the logo header visible on mobile */
+@media (max-width: 760px) {
+  .navbar {
+    display: flex !important;
+    min-height: 62px;
+    padding: 10px 16px;
+    position: relative;
+    z-index: 30;
+  }
+
+  .logo-brand {
+    display: inline-flex !important;
+    width: 145px;
+    max-width: 55vw;
+  }
+
+  .logo-brand img {
+    display: block !important;
+    width: 100%;
+    max-height: 42px;
+    object-fit: contain;
+  }
+}

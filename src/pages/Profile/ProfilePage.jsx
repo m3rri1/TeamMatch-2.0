@@ -126,11 +126,21 @@ export default function ProfilePage({
       </nav>
 
       <main className="profile-page">
-        <div className="page-topline">
-    
+<div className="page-topline">
+  <a className="mobile-brand" href="/" aria-label="TeamMatch home">
+    <img src="/teammatch-logo.png" alt="TeamMatch" />
+  </a>
 
-          <span className="page-status">PROFILE SAVED ✓</span>
-        </div>
+  <span className="page-status">PROFILE SAVED ✓</span>
+
+  <button
+    className="mobile-logout"
+    type="button"
+    onClick={logout}
+  >
+    Log out
+  </button>
+</div>
 
         <div className="profile-intro">
           <div>

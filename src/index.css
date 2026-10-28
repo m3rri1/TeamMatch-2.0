@@ -4033,3 +4033,46 @@ textarea {
     font-size: 21px;
   }
 }
+.mobile-brand,
+.mobile-logout {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-brand {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-brand img {
+    display: block;
+    width: 112px;
+    height: auto;
+    max-height: 36px;
+    object-fit: contain;
+  }
+
+  .mobile-logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border: 1px solid #ded6cc;
+    border-radius: 10px;
+    background: #fffaf5;
+    color: #244c3d;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .page-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
